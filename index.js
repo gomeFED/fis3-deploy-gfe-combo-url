@@ -17,6 +17,8 @@ module.exports = function(options, modified, total, next) {
     var comboQueryDelimiter = options.comboQueryDelimiter || ',';
     //combo内容正则表达式
     var comboRegExp = /<!--\s*gfe:combo:begin\s*-->((?!<!--\s*gfe:combo:end\s*-->)[\s\S])*<!--\s*gfe:combo:end\s*-->/gi;
+    //模块combo内容正则表达式
+    var modulesComboRegExp = /<!--\s*gfe:modules-combo:begin\s*-->((?!<!--\s*gfe:combo:end\s*-->)[\s\S])*<!--\s*gfe:modules-combo:end\s*-->/gi;
     //link标签正则表达式
     var linkTagRegExp = /<link[^>]*?href\s*=\s*('[^']*'|"[^"]*")[^>]*?\/?>/gi;
     //script标签正则表达式
@@ -25,11 +27,15 @@ module.exports = function(options, modified, total, next) {
     var ssiTagRegExp = /<!--[ ]*#[ ]*([a-z]+)([ ]+([a-z]+)=("|')(.+?)("|'))*[ ]*-->/gi;
     //domain正则表达式
     var domainRegExp = /^((https:\/\/|http:\/\/|\/\/)[a-zA-Z\.0-9]+(?=\/))|(__CSS_DOMAIN__)|(__JS_DOMAIN__)/gi;
+    //combo的require Config 正则表达式
+    var requireConfigExp = /require\.config\((\{[\s\S]*?\})\);?/img;
+    //combo的sea Config 正则表达式
+    var seaConfigExp = /seajs\.config\((\{[\s\S]*?\})\);?/img;
     //combo的link标签
     var comboLinkTag = '<link rel="stylesheet" href="COMBO_URL">';
     //combo的script标签
     var comboScriptTag = '<script src="COMBO_URL"></script>';
-
+   
     modified.forEach(function(file) {
         if (file.isText() || typeof(file.getContent()) === 'string') {
             var content = file.getContent();
@@ -38,7 +44,31 @@ module.exports = function(options, modified, total, next) {
             var isEntryFile = (~content.indexOf('/html') || ~content.indexOf('/HTML')) && (~content.indexOf('/head') || ~content.indexOf('/HEAD')) && (~content.indexOf('/body') || ~content.indexOf('/BODY'));
 
             //html入口文件(非-debug调试文件)才combo
-            if (useCombo && /\.(html|ftl)/.test(file.rExt) && !/-debug$/.test(file.filename) && isEntryFile) {
+            if (useCombo && /\.(html|ftl|tpl)/.test(file.rExt) && !/-debug$/.test(file.filename) && isEntryFile) {
+
+                //模块化合包处理
+                content = content.replace(modulesComboRegExp, function(comboContent) {
+                    var temConfigStr = '';
+                    var strUrl = '<!-- gfe:combo:begin -->';
+                    var paths = null;
+                    var temRegExp = requireConfigExp;
+
+                    //sea的处理
+                    if(seaConfigExp.test(content)) {
+                        temRegExp = seaConfigExp;
+                    }
+                    comboContent.replace(temRegExp,function(all, configStr){
+                        temConfigStr = configStr;
+                    })
+                    if(!temConfigStr) {return comboContent};
+                    var mConfig = superParseJson(temConfigStr);
+                    paths = mConfig.paths || mConfig.alias;
+                    for(var attr in paths) {
+                        strUrl += '<script src="'+ paths[attr] +'.js"></script>'
+                    }
+                    
+                    return strUrl+'<!-- gfe:combo:end -->';
+                })
                 content = content.replace(comboRegExp, function(comboContent) {
                     var comboTag = '';
                     var domain = '';
@@ -87,3 +117,12 @@ module.exports = function(options, modified, total, next) {
     });
     next();
 };
+
+/**
+ * superParseJson 用于处理把字符串json转换成json对象
+ * @param  {String} jsonStr 字符串json
+ * @return  {Json}  json对象
+ */
+function superParseJson(jsonStr) {
+    return JSON.parse(jsonStr.replace(/\s*/g, '').replace(/,(}|])/g, '$1').replace(/'/g, '"').replace(/(\w+):/g, '"$1":'));
+}
