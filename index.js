@@ -16,9 +16,9 @@ module.exports = function(options, modified, total, next) {
     //combo的查询分隔符
     var comboQueryDelimiter = options.comboQueryDelimiter || ',';
     //combo内容正则表达式
-    var comboRegExp = /<!--\s*gfe:combo:begin\s*-->((?!<!--\s*gfe:combo:end\s*-->)[\s\S])*<!--\s*gfe:combo:end\s*-->/gi;
+    var comboRegExp = /<!--\s*gfis:combo:begin\s*-->((?!<!--\s*gfis:combo:end\s*-->)[\s\S])*<!--\s*gfis:combo:end\s*-->/gi;
     //模块combo内容正则表达式
-    var modulesComboRegExp = /<!--\s*gfe:modules-combo:begin\s*-->((?!<!--\s*gfe:combo:end\s*-->)[\s\S])*<!--\s*gfe:modules-combo:end\s*-->/gi;
+    var modulesComboRegExp = /<!--\s*gfis:modules-combo:begin\s*-->((?!<!--\s*gfis:combo:end\s*-->)[\s\S])*<!--\s*gfis:modules-combo:end\s*-->/gi;
     //link标签正则表达式
     var linkTagRegExp = /<link[^>]*?href\s*=\s*('[^']*'|"[^"]*")[^>]*?\/?>/gi;
     //script标签正则表达式
@@ -39,7 +39,6 @@ module.exports = function(options, modified, total, next) {
     modified.forEach(function(file) {
         if (file.isText() || typeof(file.getContent()) === 'string') {
             var content = file.getContent();
-
             //包含html基本结构的入口文件
             var isEntryFile = (~content.indexOf('/html') || ~content.indexOf('/HTML')) && (~content.indexOf('/head') || ~content.indexOf('/HEAD')) && (~content.indexOf('/body') || ~content.indexOf('/BODY'));
 
@@ -49,7 +48,7 @@ module.exports = function(options, modified, total, next) {
                 //模块化合包处理
                 content = content.replace(modulesComboRegExp, function(comboContent) {
                     var temConfigStr = '';
-                    var strUrl = '<!-- gfe:combo:begin -->';
+                    var strUrl = '<!-- gfis:combo:begin -->';
                     var paths = null;
                     var temRegExp = requireConfigExp;
 
@@ -67,7 +66,7 @@ module.exports = function(options, modified, total, next) {
                         strUrl += '<script src="'+ paths[attr] +'.js"></script>'
                     }
                     
-                    return strUrl+'<!-- gfe:combo:end -->';
+                    return strUrl+'<!-- gfis:combo:end -->';
                 })
                 content = content.replace(comboRegExp, function(comboContent) {
                     var comboTag = '';
